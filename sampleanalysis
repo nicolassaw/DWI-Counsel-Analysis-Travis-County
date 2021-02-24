@@ -1,0 +1,126 @@
+#This imports the proper Python libraries.
+import pandas
+import numpy
+import statsmodels.api as sm
+import statsmodels.formula.api as smf #For ANOVA analysis
+import seaborn
+import matplotlib.pyplot as plt #For making plots.
+import statsmodels.stats.multicomp as multi #For Tukey POST HOC analysis
+import scipy.stats
+
+#This reduces errors.
+pandas.set_option('display.float_format',lambda x:'%f'%x)
+#This reads in the dataset.
+data = pandas.read_csv("county_2015-2018_v4_49.04_MBonly_COMMSUPcombined_ASIANremovedJAILCOMSUPPonly_better.csv", low_memory=False)
+
+#This ensures my variables are categorical or numeric.
+    #Explanatory Variables
+data["race"] = data["race"].astype("category")
+data["sex"] = data["sex"].astype("category")
+data['atty_typ_desc'] = pandas.to_numeric(data['atty_typ_desc'], errors='coerce')
+
+data["cs_disp_less30"] = data["cs_disp_less30"].astype("category")
+data["judge"] = data["judge"].astype("category")
+data['age'] = pandas.to_numeric(data['age'], errors='coerce')
+    #Response Variables
+data['fnl_disp_desc'] = pandas.to_numeric(data['fnl_disp_desc'], errors='coerce')
+
+
+print("*****Variables!*****")
+print("(1) race is a two-level categorical explanatory variable, 0=white and 1=black")
+print("(2) sex is a two-level categorical explanatory variable, 0=male and 1=female")
+print("(3) atty_typ_desc is a two-level categorical explanatory variable, 0=appointed and 1=hired")
+print("(4) cs_disp_less30 is a two-level categorical explanatory variable, 0=sentenced more than 30 days after arrest and 1=sentenced within 30 days after arrest")
+print("(5) judge is a categorical explanatory variable with 6 levels, which represents the different judges who passed the sentence, 0=CC3, 1=CC5, 2=CC6, 3=CC7, 4=CC8, 5=CC9")
+print("(6) age is a numerical explanatory variable")
+print("(7) Final Disposition Description is a two-level categorical response variable, 0=jail and 1=probation")
+     
+print("*****Frequency Tables!*****")
+#This section generates frequency tables to check that my categorical values were properly zero'd and coded properly.
+print("Race Frequency Table: 0=white and 1=black")
+ft_c = data["race"].value_counts(sort=False, dropna=False)
+print("Count of Each Defendant's Race")
+print(ft_c)
+ft_p = data["race"].value_counts(sort=False, normalize=True)
+print("Percentage of Each Defendant's Race")
+print(ft_p)
+
+print("Sex Frequency Table: 0=male and 1=female")
+ft_c = data["sex"].value_counts(sort=False, dropna=False)
+print("Count of Each Defendant's Sex")
+print(ft_c)
+ft_p = data["sex"].value_counts(sort=False, normalize=True)
+print("Percentage of Each Defendant's Sex")
+print(ft_p)
+
+print("Attorney Type Frequency Table: 0=appointed and 1=hired")
+ft_c = data["atty_typ_desc"].value_counts(sort=False, dropna=False)
+print("Count of Each Defendant's Attorney Type")
+print(ft_c)
+ft_p = data["atty_typ_desc"].value_counts(sort=False, normalize=True)
+print("Percentage of Each Defendant's Attorney Type")
+print(ft_p)
+
+print("Whether the Sentence Was Within 30 Days of Arrest Frequency Table: 0=sentenced more than 30 days after arrest and 1=sentenced within 30 days after arrest")
+ft_c = data["cs_disp_less30"].value_counts(sort=False, dropna=False)
+print("Count of Whether the Sentence Was Within 30 Days of Arrest")
+print(ft_c)
+ft_p = data["cs_disp_less30"].value_counts(sort=False, normalize=True)
+print("Percentage of Whether the Sentence Was Within 30 Days of Arrest")
+print(ft_p)
+
+print("Judge Table: 0=CC3, 1=CC5, 2=CC6, 3=CC7, 4=CC8, 5=CC9")
+ft_c = data["judge"].value_counts(sort=False, dropna=False)
+print("Count of Each Court/Judge")
+print(ft_c)
+ft_p = data["judge"].value_counts(sort=False, normalize=True)
+print("Percentage of Each Court/Judge")
+print(ft_p)
+
+print("Age Table: Numerical")
+ft_c = data["age"].value_counts(sort=False, dropna=False)
+print("Count of Each Defendant's Age")
+print(ft_c)
+ft_p = data["age"].value_counts(sort=False, normalize=True)
+print("Percentage of Each Defendant's Age")
+print(ft_p)
+
+print("Final Disposition Description Table: 0=jail, 1=probation")
+ft_c = data["fnl_disp_desc"].value_counts(sort=False, dropna=False)
+print("Count of Each Defendant's Final Disposition Description")
+print(ft_c)
+ft_p = data["fnl_disp_desc"].value_counts(sort=False, normalize=True)
+print("Percentage of Each Defendant's Final Disposition Description")
+print(ft_p)
+
+print("*****Centering My Numerical Explanatory Variable!*****")
+data['age_c'] = (data['age'] - data['age'].mean())
+#This checks to see that the mean of my centered age_c equals 0 or is close to zero.
+print("Mean of numerical variable should be close to 0:")
+print(data['age_c'].mean())
+
+print("*****Logistic Regression Analysis!*****")
+print("All of the variables")
+#This runs the logistic regression.
+lreg1= smf.logit(formula='fnl_disp_desc ~ race + sex + cs_disp_less30 + judge + age_c + atty_typ_desc', data = data).fit()
+print(lreg1.summary())
+
+#This is a post hoc test to see how age and attorney type confound the likelihood of receiving probation.
+print(" ")
+print("--------------------------------------------------------------------------------------------------")
+print(" ")
+print("**********Post hoc test on just attorney type and age of defendant**********")
+lreg1= smf.logit(formula='atty_typ_desc ~ age_c', data = data).fit()
+print(lreg1.summary())
+
+#This calculates the odds ratio.
+print("Odds Ratio")
+print(numpy.exp(lreg1.params))
+
+#This prints the confidence intervals of the odds ratio.
+print("Confidence Intervals of Odds Ratio")
+params = lreg1.params
+conf = lreg1.conf_int()
+conf['OR'] = params
+conf.columns = ['Lower CI', 'Upper CI', 'OR']
+print(numpy.exp(conf))
